@@ -45,7 +45,8 @@ def export(model, x, out_c="deploy/tcn_weights.h", out_io="deploy/tcn_ref_io.txt
     N = len(x)
     xi = np.round(x.real*32768).astype(np.int64); xq_ = np.round(x.imag*32768).astype(np.int64)
     x0 = np.stack([xi, xq_])                                   # (2,N) int (Q15)
-    xr = np.stack([x.real, x.imag])                            # (2,N) real units
+    # reference is computed from the QUANTISED input so C and Python are identical
+    xr = x0/32768.0                                            # (2,N) real units
     SX0 = float(np.abs(xr).max())/32700.0
     a0 = q(xr, SX0)
     # conv0
@@ -87,7 +88,7 @@ def export(model, x, out_c="deploy/tcn_weights.h", out_io="deploy/tcn_ref_io.txt
             real_h[o] += (Whq[o, c]*Whs)*(hq[c]*Sh)
         real_h[o] += Bh[o]
     corr = real_h[0] + 1j*real_h[1]
-    out = corr + x
+    out = corr + (xr[0] + 1j*xr[1])
 
     os.makedirs(os.path.dirname(out_c), exist_ok=True)
     with open(out_c, "w") as f:
@@ -96,7 +97,9 @@ def export(model, x, out_c="deploy/tcn_weights.h", out_io="deploy/tcn_ref_io.txt
             f.write(f"static const {t} {name}[{A.size}] = {{\n")
             fl = A.reshape(-1)
             for i in range(0, fl.size, 12):
-                f.write("  " + ",".join(str(int(v)) for v in fl[i:i+12]) + ",\n")
+                ch = fl[i:i+12]
+                vals = (repr(float(v)) for v in ch) if t == "double" else (str(int(v)) for v in ch)
+                f.write("  " + ",".join(vals) + ",\n")
             f.write("};\n")
         for i in range(3):
             arr(f"TCN_W{i}", Wq[i])                        # shape (Cout,Cin,K), row-major

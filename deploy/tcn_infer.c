@@ -46,10 +46,6 @@ int main(void){
     conv(TCN_W0, TCN_B0, 32, 2,  TCN_D0, NT, xs, TCN_SW0, TCN_SX0, TCN_SY0, a1);
     conv(TCN_W1, TCN_B1, 32, 32, TCN_D1, NT, a1, TCN_SW1, TCN_SY0, TCN_SY1, a2);
     conv(TCN_W2, TCN_B2, 32, 32, TCN_D2, NT, a2, TCN_SW2, TCN_SY1, TCN_SY2, a3);
-    printf("DBG C a1=%d %d %d %d | a2=%d %d %d %d | a3=%d %d %d %d\n",
-           a1[0*NT+0],a1[1*NT+0],a1[2*NT+0],a1[3*NT+0],
-           a2[0*NT+0],a2[1*NT+0],a2[2*NT+0],a2[3*NT+0],
-           a3[0*NT+0],a3[1*NT+0],a3[2*NT+0],a3[3*NT+0]);
     int nerr=0; double maxe=0;
     for (int t=0;t<NT;t++){
         double hr=0, hi=0;
