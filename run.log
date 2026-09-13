@@ -1,0 +1,28 @@
+==============================================================================
+scenario 1: memory-polynomial PA (polynomial is the matched model)
+==============================================================================
+  no-DPD       ACLR_low= -44.82 dB  ACLR_up= -46.52 dB   EVM=  3.781 %   NMSE= -28.28 dB
+  PolyMP-DPD   ACLR_low= -68.72 dB  ACLR_up= -70.58 dB   EVM=  0.081 %   NMSE= -60.56 dB
+  RVTDNN-DPD   ACLR_low= -53.72 dB  ACLR_up= -54.14 dB   EVM=  0.238 %   NMSE= -47.79 dB
+  CVNN-DPD     ACLR_low= -52.21 dB  ACLR_up= -53.73 dB   EVM=  0.364 %   NMSE= -46.02 dB
+  TCN-DPD      ACLR_low= -44.25 dB  ACLR_up= -44.93 dB   EVM=  1.005 %   NMSE= -37.44 dB
+
+==============================================================================
+scenario 2: generalised MP PA (extra cross-memory, harder to invert)
+==============================================================================
+  no-DPD       ACLR_low= -51.30 dB  ACLR_up= -49.31 dB   EVM=  1.071 %   NMSE= -38.74 dB
+  PolyMP-DPD   ACLR_low= -66.11 dB  ACLR_up= -71.25 dB   EVM=  0.051 %   NMSE= -62.38 dB
+  RVTDNN-DPD   ACLR_low= -53.50 dB  ACLR_up= -54.20 dB   EVM=  0.311 %   NMSE= -47.00 dB
+  CVNN-DPD     ACLR_low= -50.98 dB  ACLR_up= -50.57 dB   EVM=  0.538 %   NMSE= -42.89 dB
+  TCN-DPD      ACLR_low= -46.72 dB  ACLR_up= -46.52 dB   EVM=  0.904 %   NMSE= -38.70 dB
+
+==============================================================================
+quantisation + deployment export (RVTDNN)
+==============================================================================
+Traceback (most recent call last):
+  File "/home/admin/.openclaw/workspace/session-files/01M29WA31YMFQT3M82FZP26T29/ai-dpd/run.py", line 45, in <module>
+    quant_export.quantize_and_export(best, y_in=x_tr*0, x_cal=x_tr)
+  File "/home/admin/.openclaw/workspace/session-files/01M29WA31YMFQT3M82FZP26T29/ai-dpd/quant_export.py", line 42, in quantize_and_export
+    y1 = acc1*(SW[1]*SX[1]) + b1; a2q = _q(np.maximum(y1, 0), SX[2])
+                              ^^
+NameError: name 'b1' is not defined. Did you mean: 'b0'?

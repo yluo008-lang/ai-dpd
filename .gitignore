@@ -1,0 +1,5 @@
+__pycache__/
+*.o
+*.pyc
+deploy/nn_dpd_infer
+deploy/tb.vvp
