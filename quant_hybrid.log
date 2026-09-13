@@ -1,0 +1,4 @@
+float Hybrid : ACLR  -70.46  EVM 0.0514%
+int16 Hybrid : ACLR  -49.50  EVM 0.4975%
+loss         : +20.96 dB ACLR   +0.4461 pp EVM   (corr fid 89.5 dB)
+wrote deploy/hybrid_weights.h + hybrid_ref_io.txt
