@@ -1,0 +1,27 @@
+
+=== MP PA (MATCHED)  (mean +- std, n=5) ===
+  method             ACLR(dB)           EVM(%)
+  no-DPD      -46.35 +- 0.00     3.801 +- 0.000
+  PolyMP      -70.49 +- 0.51     0.072 +- 0.003
+  ILA-NN      -49.97 +- 1.68     0.455 +- 0.082
+  DLA-NN      -51.31 +- 1.98     0.367 +- 0.079
+  TCN         -45.78 +- 0.85     0.827 +- 0.146
+  paired DLA-ILA ACLR: mean -1.35 dB, sd(diff) 1.61, sign 1/5 positive  (n=5, too few for significance)
+
+=== MP + I/Q imbalance (MISMATCHED)  (mean +- std, n=5) ===
+  method             ACLR(dB)           EVM(%)
+  no-DPD      -45.71 +- 0.00     6.334 +- 0.000
+  PolyMP      -54.45 +- 2.69     5.110 +- 0.066
+  ILA-NN      -48.72 +- 1.62     0.590 +- 0.147
+  DLA-NN      -49.18 +- 1.24     0.503 +- 0.062
+  TCN         -46.30 +- 0.77     0.794 +- 0.124
+  paired DLA-ILA ACLR: mean -0.46 dB, sd(diff) 1.96, sign 2/5 positive  (n=5, too few for significance)
+
+=== calibration sweep, end-to-end DLA-RVTDNN (MP PA) ===
+  float:  ACLR -48.96  EVM 0.4811%
+  pct=100.00: corr-fid  71.0 dB | int16 ACLR -48.94 (+0.02) EVM 0.4885% (+0.0074)
+  pct= 99.99: corr-fid  33.3 dB | int16 ACLR -49.41 (-0.45) EVM 0.4730% (-0.0081)
+  pct= 99.90: corr-fid  21.8 dB | int16 ACLR -49.82 (-0.86) EVM 0.5107% (+0.0295)
+  pct= 99.00: corr-fid   8.4 dB | int16 ACLR -44.91 (+4.06) EVM 1.1301% (+0.6489)
+
+total 97s

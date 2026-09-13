@@ -84,9 +84,10 @@ class CVNN(nn.Module):
 class TCN(nn.Module):
     """Causal dilated conv (kernel 3, dilations 1,2,4) over (I,Q) + final MLP."""
     seq_model = True
-    def __init__(self, M=4, C=16, layers=(1,2,4)):
+    def __init__(self, M=4, C=16, layers=(1,2,4), residual=True):
         super().__init__()
         self.m = M
+        self.residual = residual
         self.convs = nn.ModuleList()
         cin = 2
         for d in layers:
@@ -102,6 +103,8 @@ class TCN(nn.Module):
             seq = self.act(c(seq))
         seq = seq.squeeze(0).transpose(0, 1)                    # (N,C)
         out = self.head(seq)
+        y = torch.complex(out[:, 0], out[:, 1])
+        return y + x if self.residual else y                    # residual: lower bound == no-DPD
         return torch.complex(out[:, 0], out[:, 1])
     @property
     def M(self): return self.m

@@ -42,7 +42,6 @@ class MP_PA:
         return y
 
 class GmMP_PA:
-    """Generalised MP: adds cross terms x(n-m)*|x(n-l)|^2 (l != m)."""
     def __init__(self, M=4, Np=3, seed=7):
         rng = np.random.default_rng(seed)
         self.M, self.Np = M, Np
@@ -69,6 +68,19 @@ if __name__ == "__main__":
     x = dsp.scale(dsp.gen_ofdm(seed=3), 0.25)
     y = MP_PA()(x)
     dsp.report("PA(no DPD)", x, y)
+
+class IQMP_PA:
+    """MP PA followed by I/Q imbalance:  y = a*MP(x) + b*conj(MP(x)).
+    The conjugate (image) term is NOT representable by a memory polynomial, so
+    an MP-DPD hits a floor here while the NN (with I,Q features) can model it."""
+    def __init__(self, M=4, Np=3, beta=0.05, phase=0.7):
+        self.mp = MP_PA(M=M, Np=Np)
+        self.c = self.mp.c
+        self.a = 1.0 + 0j
+        self.b = beta*(np.cos(phase) + 1j*np.sin(phase))
+    def __call__(self, x):
+        y = self.mp(x)
+        return self.a*y + self.b*np.conj(y)
 
 # ------------------------------------------------------------------ torch PA (differentiable, for DLA)
 def torch_mp_pa(coef=None, M=4, Np=3, device="cpu"):
@@ -119,4 +131,15 @@ def torch_gmmp_pa(M=4, Np=3, seed=7):
             y = y + cct[m]*xm*(xp.real**2 + xp.imag**2)
         return y
     pa.c = ct
+    return pa
+
+def torch_iqmp_pa(M=4, Np=3, beta=0.05, phase=0.7):
+    """Differentiable MP PA with I/Q imbalance (image term) for DLA."""
+    import torch
+    base = torch_mp_pa(M=M, Np=Np)
+    b = torch.as_tensor(beta*(np.cos(phase)+1j*np.sin(phase)), dtype=torch.complex64)
+    def pa(x):
+        y = base(x)
+        return y + b*torch.conj(y)
+    pa.c = base.c
     return pa
