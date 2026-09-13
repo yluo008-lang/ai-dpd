@@ -1,0 +1,6 @@
+=== TCN-32x(1,2,4,8) int16 weight quantisation (MP PA) ===
+  float DPD : ACLR  -52.58 dB  EVM 0.3042%
+  int16 DPD : ACLR  -52.58 dB  EVM 0.3042%
+  loss      : +0.00 dB ACLR   -0.0000 pp EVM
+  correction fidel (weight-only int16): 80.1 dB
+  #quantised tensors: 5

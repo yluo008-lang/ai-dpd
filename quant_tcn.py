@@ -51,11 +51,7 @@ if __name__ == "__main__":
     zf = nn_apply(m, x_te); zq = quant_forward(m, sd_q, x_te)
     yf, yq = PA(zf), PA(zq)
     af, aq = met(x_te, yf), met(x_te, yq)
-    cfid = dsp.nmse_db(np.mean([v for v in [0]]), [0])  # placeholder unused
-    # correction fidelity (float vs int16) on the correction only
-    corr = dsp.nmse_db(np.ones(1), np.ones(1)) if False else None
-    import numpy as np2
-    cf = np.mean(np.abs((zf - x_te) - (zq - x_te))**2)
+    cf = np.mean(np.abs(zf - zq)**2)                 # correction error (residual cancels)
     pw = np.mean(np.abs(zf - x_te)**2)
     print("=== TCN-32x(1,2,4,8) int16 weight quantisation (MP PA) ===")
     print(f"  float DPD : ACLR {af[0]:7.2f} dB  EVM {af[1]:.4f}%")
