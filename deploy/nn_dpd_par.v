@@ -25,9 +25,11 @@ module nn_dpd_par #(
     input  wire [P*2*IW-1:0] xin,
     output wire [P*2*IW-1:0] yout
 );
-    wire [P*3*M*IW-1:0] feats;
+    wire [P*3*M*IW-1:0] feats, fscaled;
     nn_dpd_feat_par #(.P(P), .M(M), .IW(IW)) u_feat (
         .clk(clk), .rst(rst), .ce(ce), .xin(xin), .feats(feats));
+    // feature (Q1.15) -> MLP activation (int16 full-range)
+    nn_dpd_scale #(.NF(P*3*M)) u_scale (.fin(feats), .fout(fscaled));
 
     genvar g;
     generate
@@ -37,7 +39,7 @@ module nn_dpd_par #(
             nn_dpd_layer #(.NIN(3*M),.NOUT(H),.REQ(REQ0),.SHIFT(SHIFT),.RELU(1),
                            .WFILE("w0.mem"),.BFILE("b0.mem")) L0 (
                 .clk(clk), .rst(rst), .ce(ce),
-                .xin(feats[g*3*M*IW +: 3*M*IW]), .yout(a1));
+                .xin(fscaled[g*3*M*IW +: 3*M*IW]), .yout(a1));
             nn_dpd_layer #(.NIN(H),.NOUT(H),.REQ(REQ1),.SHIFT(SHIFT),.RELU(1),
                            .WFILE("w1.mem"),.BFILE("b1.mem")) L1 (
                 .clk(clk), .rst(rst), .ce(ce), .xin(a1), .yout(a2));
