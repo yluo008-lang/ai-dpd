@@ -1,0 +1,4 @@
+no-DPD: ACLR -45.83  EVM 3.788%
+RVTDNN   : ACLR -54.23  EVM  0.256%  | correction rms 0.0137 oob/inb 2.38e-02
+TCN-16   : ACLR -50.37  EVM  0.408%  | correction rms 0.0136 oob/inb 1.92e-02
+TCN-32x4 : ACLR -54.83  EVM  0.218%  | correction rms 0.0137 oob/inb 2.45e-02
