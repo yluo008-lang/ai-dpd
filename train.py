@@ -20,8 +20,8 @@ def poly_dpd_apply(x, c, M=4, Np=3):
 
 # ------------------------------------------------------------------ NN training
 def train_nn(model, xin, target, epochs=200, lr=3e-3, log=None):
-    # Train on the FULL contiguous sequence: delayed-tap features are built with
-    # roll(), so the samples fed to the net must stay in true temporal order.
+    # Train on the FULL contiguous sequence: delayed-tap features are causal
+    # (zero-padded), so the fed samples must stay in true temporal order.
     xin_t = torch.as_tensor(xin, dtype=torch.complex64)
     tgt   = torch.as_tensor(target, dtype=torch.complex64)
     N = len(xin_t)
