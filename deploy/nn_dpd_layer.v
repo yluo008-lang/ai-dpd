@@ -9,6 +9,8 @@
 // by quant_export.py). Fully parallel MACs, 1 output vector / clock.
 // ============================================================================
 `default_nettype none
+// 2-stage pipelined: MAC tree registered, then requant+sat registered.
+// Latency = 2 cycles (throughput still 1 vector/clk).
 module nn_dpd_layer #(
     parameter NIN  = 12,
     parameter NOUT = 32,
@@ -35,9 +37,10 @@ module nn_dpd_layer #(
     genvar g;
     generate for (g=0; g<NIN; g=g+1) assign xv[g] = $signed(xin[g*16 +: 16]); endgenerate
 
-    reg signed [63:0] acc [0:NOUT-1];
-    reg signed [63:0] rq  [0:NOUT-1];
-    reg signed [15:0] yo  [0:NOUT-1];
+    reg signed [63:0] acc  [0:NOUT-1];   // combinational MAC result
+    reg signed [63:0] acc_r[0:NOUT-1];   // pipeline register (stage 1)
+    reg signed [63:0] rq   [0:NOUT-1];
+    reg signed [15:0] yo   [0:NOUT-1];
     integer o, k;
 
     always @(*) begin
@@ -45,7 +48,17 @@ module nn_dpd_layer #(
             acc[o] = 0;
             for (k=0; k<NIN; k=k+1)
                 acc[o] = acc[o] + (W[o*NIN+k] * xv[k]);
-            rq[o] = (acc[o]*REQ + ($signed(BQ[o]) <<< SHIFT) + (1 <<< (SHIFT-1))) >>> SHIFT;
+        end
+    end
+
+    // stage 1: register the MAC result
+    always @(posedge clk) if (!rst && ce)
+        for (o=0; o<NOUT; o=o+1) acc_r[o] <= acc[o];
+
+    // stage 2: requant + ReLU + saturate from the registered accumulator
+    always @(*) begin
+        for (o=0; o<NOUT; o=o+1) begin
+            rq[o] = (acc_r[o]*REQ + ($signed(BQ[o]) <<< SHIFT) + (1 <<< (SHIFT-1))) >>> SHIFT;
             if (RELU && rq[o] < 0) rq[o] = 0;
             if (rq[o] >  32767) rq[o] =  32767;
             if (rq[o] < -32768) rq[o] = -32768;

@@ -30,6 +30,7 @@ module tb_nn_dpd_layer;
             for (k=0;k<NIN;k=k+1) xin[k*16 +: 16] = xq[k][15:0];
             for (k=0;k<NOUT;k=k+1) rc = $fscanf(fd,"%d",eq[k]);
             @(negedge clk);
+            @(negedge clk);              // pipelined layer: latency = 2 cycles
             for (k=0;k<NOUT;k=k+1)
                 if ($signed(yout[k*16 +: 16]) !== eq[k]) err = err+1;
         end
