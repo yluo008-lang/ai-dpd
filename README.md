@@ -82,10 +82,21 @@ cd deploy && make rtl && vvp tb.vvp
 | `nn_dpd_feat.v`（延迟线 + 整数 sqrt） | 位真 PASS |
 | `nn_dpd_feat_par.v`（P 样本/时钟） | P=2 位真 PASS |
 | `nn_dpd_scale.v`（特征缩放） | 与参考 a0 逐值一致 |
-| `nn_dpd_par.v`（P-lane 并行顶层） | 综合展开通过 |
+| `nn_dpd_par.v`（P-lane 并行顶层） | 位真 PASS（feat→scale→L0，0/2048）|
 | `nn_dpd_infer.c` / `hybrid_infer.c` / `tcn_infer.c` | PASS（≤8 LSB）|
 
-> 注：`nn_dpd_par` 的整链 testbench（`tb_nn_dpd_par.v`）首样本 lane0 与独立手算/金标一致；全链逐比特对拍仍有残余失配，正在收敛中——**未宣称完全通过**。
+> 状态：`nn_dpd_feat/feat_par/scale/L0`、各 C 推理均已位真对拍通过；`nn_dpd_par` 扩展到**完整 3 层 MLP + 残差**后整链对拍**尚未通过**（新增 L1/L2/残差通路后出现失配，正在定位）——未宣称完全通过。
+
+## PA 漂移鲁棒性（train/test 的 I/Q 失衡不同）
+
+| beta_train / beta_test | 方法 | ACLR | EVM |
+|---|---|---|---|
+| 0.05 / 0.05 (same) | Poly / NN | −53.9 / −56.1 | 5.13% / **0.22%** |
+| 0.05 / 0.08 (drift) | Poly / NN | −53.9 / −54.7 | 8.10% / **3.05%** |
+| 0.08 / 0.05 (drift) | Poly / NN | −49.1 / −53.7 | 5.29% / **2.98%** |
+| 0.05 / 0.12 (drift) | Poly / NN | −53.9 / −54.7 | 12.08% / **7.07%** |
+
+**结论**：PA 漂移时多项式的 EVM 能力几乎失效（跟随 no-DPD），**NN 的 EVM 仍显著更低**（漂移下 3% vs 8%、7% vs 12%），ACLR 也更稳 → **NN 对 PA 漂移更鲁棒**。脚本：`run_drift.py`。
 
 ## 关键结论
 

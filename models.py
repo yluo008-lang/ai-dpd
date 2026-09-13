@@ -11,25 +11,27 @@ import torch.nn as nn
 import numpy as np
 
 # ---------------------------------------------------------------- feature build
+# CAUSAL zero-padded delay: out[n] = in[n-m] (0 for n<m), SAME as the C/RTL.
+# (torch.roll would wrap the boundary, breaking the Python<->C/RTL golden chain.)
+def _delay(t, m):
+    if m == 0:
+        return t
+    z = torch.zeros(m, dtype=t.dtype, device=t.device)
+    return torch.cat([z, t[:t.shape[0]-m]])
+
 def real_features(x, M):
-    """x: complex np/torch (N,) -> real tensor (N, 3M): [I_m, Q_m, |x_m|] per tap."""
-    if torch.is_tensor(x):
-        xr, xi = x.real, x.imag
-    else:
-        x = torch.as_tensor(x); xr, xi = x.real, x.imag
-    N = x.shape[0]
+    """x: complex (N,) -> real tensor (N, 3M): [I_m, Q_m, |x_m|] per tap (causal)."""
+    x = x if torch.is_tensor(x) else torch.as_tensor(x)
+    xr, xi = x.real, x.imag
     feats = []
     for m in range(M):
-        r = torch.roll(xr, m); i = torch.roll(xi, m)      # roll = delay (wrap is fine, seq is long)
+        r = _delay(xr, m); i = _delay(xi, m)
         feats += [r, i, torch.sqrt(r*r + i*i + 1e-12)]
     return torch.stack(feats, dim=1)                       # (N, 3M)
 
 def complex_taps(x, M):
-    """x: complex torch (N,) -> complex tensor (N, M) of delayed samples."""
-    cols = []
-    for m in range(M):
-        cols.append(torch.roll(x, m))
-    return torch.stack(cols, dim=1)
+    """x: complex torch (N,) -> complex tensor (N, M) of causally delayed samples."""
+    return torch.stack([_delay(x, m) for m in range(M)], dim=1)
 
 # ---------------------------------------------------------------- models
 class RVTDNN(nn.Module):

@@ -14,10 +14,6 @@ def q(a, s):  return np.clip(np.round(a/s), -32768, 32767).astype(np.int64)
 def req(acc, reqk, bq, sh):
     t = acc*reqk + (bq << sh) + (1 << (sh-1)); return t >> sh
 
-def build(x, model, ylin_from, nn_from, G, Np=3, M=4):
-    """ylin_from(y_g) -> LS poly inverse ; used to LS-init the polynomial branch."""
-    pass
-
 if __name__ == "__main__":
     import os
     M, Np, H, SHIFT = 4, 3, 32, 30

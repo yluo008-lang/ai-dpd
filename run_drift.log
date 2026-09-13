@@ -1,0 +1,20 @@
+
+--- beta_train=0.05  beta_test=0.05  [same] ---
+  no-DPD   ACLR  -45.71 +- 0.00   EVM  6.334%
+  PolyMP   ACLR  -53.91 +- 0.67   EVM  5.125%
+  DLA-NN   ACLR  -56.07 +- 0.66   EVM  0.216%
+
+--- beta_train=0.05  beta_test=0.08  [DRIFT] ---
+  no-DPD   ACLR  -44.71 +- 0.00   EVM  8.916%
+  PolyMP   ACLR  -53.91 +- 0.68   EVM  8.096%
+  DLA-NN   ACLR  -54.71 +- 0.55   EVM  3.048%
+
+--- beta_train=0.08  beta_test=0.05  [DRIFT] ---
+  no-DPD   ACLR  -45.71 +- 0.00   EVM  6.334%
+  PolyMP   ACLR  -49.14 +- 1.34   EVM  5.292%
+  DLA-NN   ACLR  -53.68 +- 0.58   EVM  2.981%
+
+--- beta_train=0.05  beta_test=0.12  [DRIFT] ---
+  no-DPD   ACLR  -44.55 +- 0.00   EVM 12.649%
+  PolyMP   ACLR  -53.91 +- 0.70   EVM 12.077%
+  DLA-NN   ACLR  -54.65 +- 0.61   EVM  7.065%

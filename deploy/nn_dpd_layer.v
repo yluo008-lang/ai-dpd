@@ -58,7 +58,8 @@ module nn_dpd_layer #(
     // stage 2: requant + ReLU + saturate from the registered accumulator
     always @(*) begin
         for (o=0; o<NOUT; o=o+1) begin
-            rq[o] = (acc_r[o]*REQ + ($signed(BQ[o]) <<< SHIFT) + ((SHIFT>0) ? (1 <<< (SHIFT-1)) : 0)) >>> SHIFT;
+            // 64-bit sign-extended bias shift (avoids Verilog expression-width overflow)
+            rq[o] = (acc_r[o]*REQ + ({{32{BQ[o][31]}}, BQ[o]} <<< SHIFT) + ((SHIFT>0) ? (1 <<< (SHIFT-1)) : 0)) >>> SHIFT;
             if (RELU && rq[o] < 0) rq[o] = 0;
             if (rq[o] >  32767) rq[o] =  32767;
             if (rq[o] < -32768) rq[o] = -32768;
