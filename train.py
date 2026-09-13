@@ -41,6 +41,23 @@ def nn_apply(model, x):
     model.eval()
     return model(torch.as_tensor(x, dtype=torch.complex64)).numpy().astype(complex)
 
+# ------------------------------------------------------------------ direct learning (DLA)
+def train_dla(model, x, pa_fn, gain, epochs=3000, lr=1e-2, log=None):
+    """Direct learning: optimise || PA(D(x)) - G*x ||^2 with the PA in the loop.
+    Eliminates the ILA domain mismatch (training input == deployment input)."""
+    x_t = torch.as_tensor(x, dtype=torch.complex64)
+    target = gain * x_t
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, epochs)
+    for ep in range(epochs):
+        model.train(); opt.zero_grad()
+        y = pa_fn(model(x_t))
+        loss = torch.mean(torch.abs(y - target)**2)
+        loss.backward(); opt.step(); sch.step()
+        if log and (ep % 200 == 0 or ep == epochs-1):
+            print(f"    DLA epoch {ep:4d}  out-MSE {loss.item():.3e}")
+    return model
+
 # ------------------------------------------------------------------ full experiment
 def run(seed_tr=11, seed_te=22, N=8192, drive=0.25, epochs=200):
     x_tr = dsp.scale(dsp.gen_ofdm(N, seed=seed_tr), drive)

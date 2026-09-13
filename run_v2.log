@@ -1,0 +1,32 @@
+
+=== MP PA: mean +- std over 5 seeds ===
+  method               ACLR(dB)           EVM(%)
+  no-DPD        -46.35 +-  0.00     3.801 +- 0.000
+  PolyMP        -70.49 +-  0.51     0.072 +- 0.003
+  ILA-RVTDNN    -50.29 +-  1.16     0.448 +- 0.050
+  DLA-RVTDNN    -50.58 +-  2.18     0.408 +- 0.142
+
+=== GmMP PA: mean +- std over 5 seeds ===
+  method               ACLR(dB)           EVM(%)
+  no-DPD        -51.01 +-  0.00     1.052 +- 0.000
+  PolyMP        -71.28 +-  0.17     0.043 +- 0.001
+  ILA-RVTDNN    -51.86 +-  0.84     0.450 +- 0.096
+  DLA-RVTDNN    -52.29 +-  1.09     0.400 +- 0.040
+
+=== drive sweep (MP PA, DLA vs Poly) ===
+   drive   noDPD    Poly     ILA     DLA   (ACLR dB)
+    0.15  -55.58  -79.37  -55.77  -53.54
+    0.20  -50.47  -75.04  -51.23  -49.58
+    0.25  -46.35  -70.05  -52.74  -49.91
+    0.30  -42.86  -62.43  -45.73  -46.92
+    0.35  -39.78  -51.34  -44.07  -44.54
+
+=== quantisation loss (float DPD vs int16 DPD), DLA-RVTDNN ===
+  float DPD : ACLR  -52.45 dB  EVM 0.3367%
+  int16 DPD : ACLR  -51.10 dB  EVM 0.3784%
+  loss      : +1.35 dB ACLR   +0.0416 pp EVM
+  correction fidelity (int16 vs float): 28.1 dB
+  fixed-point fidelity of DPD correction:  28.14 dB  (percentile calib 99.9%)
+  wrote deploy/weights.h + *.mem + req_params.vh + ref_io.txt + layer0_ref.txt
+
+total 95s

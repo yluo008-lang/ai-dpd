@@ -1,3 +1,3 @@
-`define REQ0 14159
-`define REQ1 17580
+`define REQ0 10879
+`define REQ1 39132
 `define SHIFTQ 30

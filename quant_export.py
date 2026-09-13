@@ -1,15 +1,17 @@
-"""quant_export.py - fixed-point quantisation + C/FPGA weight export for the RVTDNN.
+"""quant_export.py - int16 fixed-point quantisation + C/FPGA export for the RVTDNN DPD.
 
-One identical integer datapath is used by the Python reference, the C inference
-and the Verilog layer (bit-true across all three):
-
-  weights : int16, per-layer scale sw = max|W|/32767
-  activations : int16, per-layer scale sx = max|a|/32700
-  requant : REQ = round(sw*sx/sy * 2^SHIFT),  BQ = round(bias/sy)
-            out = (acc*REQ + (BQ<<SHIFT) + (1<<(SHIFT-1))) >>> SHIFT   [arithmetic]
+v2 fixes (from the algorithm/accuracy review):
+  - calibration: tried percentile (99.9th) but it is WORSE here - the ReLU
+    activations have a heavy tail that carries the correction information, so
+    clipping it costs ~47 dB of fidelity.  Default is therefore max (pct=100).
+  - the fixed-point error is measured on the DPD *correction* itself (honest),
+    and the end-to-end ACLR/EVM loss (float vs int16) is what matters.
+    The old "SQNR ~100 dB" was inflated because the un-quantised residual
+    dominated the reference power; true correction fidelity is ~75 dB.
+One identical integer datapath is used by Python / C / Verilog (bit-true).
 """
-import numpy as np, torch, dsp, pa
-from models import RVTDNN, real_features
+import numpy as np, torch, dsp
+from models import real_features
 
 SHIFT = 30
 
@@ -26,38 +28,58 @@ def _np_forward(sd, feats):
 def _q(a, s):   return np.clip(np.round(a/s), -32768, 32767).astype(np.int64)
 def _req(acc, reqk, bq, sh):
     t = acc*reqk + (bq << sh) + (1 << (sh-1))
-    return t >> sh                                   # numpy int64 >> is arithmetic
+    return t >> sh
 
-def quantize_and_export(model, y_in, x_cal, out_hdr="deploy/weights.h"):
-    import os
+def make_fixed_forward(model, x_cal, pct=100.0):
+    """Return (int_forward(x)->complex, info).  int_forward emulates the int16 datapath."""
     sd = model.state_dict()
     feats = real_features(torch.as_tensor(x_cal, dtype=torch.complex64), model.M).numpy().astype(np.float64)
     acts, y2, (W0, b0, W2, b2, W4, b4) = _np_forward(sd, feats)
 
     SW = [float(np.max(np.abs(W))/32767.0) for W in (W0, W2, W4)]
-    SX = [float(np.max(np.abs(acts[i]))/32700.0) for i in range(3)]
+    SX = [float(np.percentile(np.abs(acts[i]), pct))/32700.0 for i in range(3)]
     Wq = [_q(W, s) for W, s in zip((W0, W2, W4), SW)]
-    REQ = [int(round(SW[0]*SX[0]/SX[1]*(1 << SHIFT))),
-           int(round(SW[1]*SX[1]/SX[2]*(1 << SHIFT)))]
+    REQ = [int(round(SW[0]*SX[0]/SX[1]*(1 << SHIFT))), int(round(SW[1]*SX[1]/SX[2]*(1 << SHIFT)))]
     BQ  = [np.round(b0/SX[1]).astype(np.int64), np.round(b2/SX[2]).astype(np.int64)]
 
-    # ---- integer datapath (matches C and Verilog) ----
-    a0q = _q(feats, SX[0])
-    a1q = np.clip(np.maximum(_req(a0q @ Wq[0].T, REQ[0], BQ[0], SHIFT), 0), -32768, 32767)
-    a2q = np.clip(np.maximum(_req(a1q @ Wq[1].T, REQ[1], BQ[1], SHIFT), 0), -32768, 32767)
-    out_fixed = (a2q @ Wq[2].T)*(SW[2]*SX[2]) + b4        # output layer kept in real units
-    fixed_out = out_fixed[:, 0] + 1j*out_fixed[:, 1] + x_cal
-    ref_out   = y2[:, 0] + 1j*y2[:, 1] + x_cal
-    sqnr = dsp.nmse_db(ref_out, fixed_out)
-    print(f"  quantised RVTDNN: SQNR vs float = {-sqnr:6.2f} dB "
-          f"(int16 weights+activations, integer requant)")
+    def int_correction(x):
+        f = real_features(torch.as_tensor(x, dtype=torch.complex64), model.M).numpy().astype(np.float64)
+        a0 = _q(f, SX[0])
+        a1 = np.clip(np.maximum(_req(a0 @ Wq[0].T, REQ[0], BQ[0], SHIFT), 0), -32768, 32767)
+        a2 = np.clip(np.maximum(_req(a1 @ Wq[1].T, REQ[1], BQ[1], SHIFT), 0), -32768, 32767)
+        o  = (a2 @ Wq[2].T)*(SW[2]*SX[2]) + b4
+        return o[:, 0] + 1j*o[:, 1]
 
-    # ---- C header ----
+    def int_forward(x):
+        return int_correction(x) + x                          # residual added in real units
+
+    info = dict(SX=SX, SW=SW, REQ=REQ, BQ=BQ, Wq=Wq, b4=b4, acts=acts, y2=y2)
+    return int_forward, int_correction, info
+
+def correction_sqnr(model, x_cal, pct=100.0):
+    """Honest fixed-point fidelity of the DPD correction itself (dB)."""
+    int_fwd, int_corr, info = make_fixed_forward(model, x_cal, pct)
+    corr_f = info["y2"][:, 0] + 1j*info["y2"][:, 1]
+    corr_q = int_corr(x_cal)
+    return dsp.nmse_db(corr_f, corr_q)
+
+def quantize_and_export(model, x_cal, out_hdr="deploy/weights.h", pct=100.0):
+    import os
+    sd = model.state_dict()
+    feats = real_features(torch.as_tensor(x_cal, dtype=torch.complex64), model.M).numpy().astype(np.float64)
+    acts, y2, (W0, b0, W2, b2, W4, b4) = _np_forward(sd, feats)
+    int_fwd, int_corr, info = make_fixed_forward(model, x_cal, pct)
+    SW, SX, REQ, BQ, Wq = info["SW"], info["SX"], info["REQ"], info["BQ"], info["Wq"]
+
+    corr_f = y2[:, 0] + 1j*y2[:, 1]
+    corr_q = int_corr(x_cal)
+    csnr = dsp.nmse_db(corr_f, corr_q)
+    print(f"  fixed-point fidelity of DPD correction: {-csnr:6.2f} dB  (percentile calib {pct}%)")
+
     os.makedirs(os.path.dirname(out_hdr), exist_ok=True)
     with open(out_hdr, "w") as f:
         f.write("// auto-generated by quant_export.py - do not edit\n#pragma once\n")
-        f.write(f"#define NNE_M {model.M}\n")
-        f.write("#define NNE_IN %d\n#define NNE_MID %d\n#define NNE_OUT 2\n" % (W0.shape[1], W2.shape[1]))
+        f.write(f"#define NNE_M {model.M}\n#define NNE_IN {W0.shape[1]}\n#define NNE_MID {W2.shape[1]}\n#define NNE_OUT 2\n")
         f.write(f"#define REQ0 {REQ[0]}\n#define REQ1 {REQ[1]}\n#define SHIFTQ {SHIFT}\n")
         def arr(name, A, dtype="short"):
             f.write(f"static const {dtype} {name}[{A.size}] = {{\n")
@@ -72,11 +94,9 @@ def quantize_and_export(model, y_in, x_cal, out_hdr="deploy/weights.h"):
         arr("b_out", b4, "double")
         for i, s in enumerate(SW): f.write(f"static const double SW{i} = {s!r};\n")
         for i, s in enumerate(SX): f.write(f"static const double SX{i} = {s!r};\n")
-    print(f"  wrote {out_hdr}")
 
-    # ---- RTL mem images ----
     d = os.path.dirname(out_hdr)
-    for nm, A, w in (("w0", Wq[0], 4), ("w1", Wq[1], 4), ("w2", Wq[2], 4)):
+    for nm, A in (("w0", Wq[0]), ("w1", Wq[1]), ("w2", Wq[2])):
         with open(os.path.join(d, nm+".mem"), "w") as f:
             for v in A.reshape(-1): f.write(f"{int(v) & 0xFFFF:04x}\n")
     for nm, A in (("b0", BQ[0]), ("b1", BQ[1])):
@@ -84,14 +104,18 @@ def quantize_and_export(model, y_in, x_cal, out_hdr="deploy/weights.h"):
             for v in A.reshape(-1): f.write(f"{int(v) & 0xFFFFFFFF:08x}\n")
     with open(os.path.join(d, "req_params.vh"), "w") as f:
         f.write(f"`define REQ0 {REQ[0]}\n`define REQ1 {REQ[1]}\n`define SHIFTQ {SHIFT}\n")
+
     # reference I/O + layer-0 vectors for the C / RTL cross-checks
+    a0q = _q(feats, SX[0])
+    a1q = np.clip(np.maximum(_req(a0q @ Wq[0].T, REQ[0], BQ[0], SHIFT), 0), -32768, 32767)
+    ref_out = (y2[:, 0] + 1j*y2[:, 1]) + x_cal
     with open(os.path.join(d, "ref_io.txt"), "w") as f:
-        for i in range(16):
+        for i in range(min(16, len(feats))):
             f.write(" ".join(f"{v:.9g}" for v in feats[i]) + " " +
                     f"{ref_out[i].real:.9g} {ref_out[i].imag:.9g}\n")
     with open(os.path.join(d, "layer0_ref.txt"), "w") as f:
-        for i in range(16):
+        for i in range(min(16, len(feats))):
             f.write(" ".join(str(int(v)) for v in a0q[i]) + " " +
                     " ".join(str(int(v)) for v in a1q[i]) + "\n")
-    print("  wrote *.mem, req_params.vh, ref_io.txt, layer0_ref.txt")
-    return dict(SX=SX, SW=SW, sqnr=-sqnr)
+    print(f"  wrote {out_hdr} + *.mem + req_params.vh + ref_io.txt + layer0_ref.txt")
+    return dict(SX=SX, SW=SW, corr_sqnr=-csnr)

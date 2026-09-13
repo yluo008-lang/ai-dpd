@@ -5,7 +5,7 @@ import dsp, pa, quant_export
 from models import RVTDNN
 
 m = RVTDNN(4, 32, "relu")
-m.load_state_dict(__import__("torch").load("RVTDNN.pt"))
+m.load_state_dict(__import__("torch").load("RVTDNN_DLA.pt"))
 x_tr = dsp.scale(dsp.gen_ofdm(8192, seed=11), 0.25)
 print("quantise + export (RVTDNN):")
-quant_export.quantize_and_export(m, y_in=None, x_cal=x_tr)
+quant_export.quantize_and_export(m, x_cal=x_tr)

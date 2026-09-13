@@ -69,3 +69,54 @@ if __name__ == "__main__":
     x = dsp.scale(dsp.gen_ofdm(seed=3), 0.25)
     y = MP_PA()(x)
     dsp.report("PA(no DPD)", x, y)
+
+# ------------------------------------------------------------------ torch PA (differentiable, for DLA)
+def torch_mp_pa(coef=None, M=4, Np=3, device="cpu"):
+    """Differentiable memory-polynomial PA as a torch callable, so a neural DPD
+    can be trained end-to-end (direct learning) through the PA."""
+    import torch
+    c = torch.as_tensor(PA_COEF if coef is None else coef,
+                        dtype=torch.complex64, device=device)
+    def basis(x):
+        N = x.shape[0]; cols = []
+        for m in range(M):
+            xm = torch.cat([torch.zeros(m, dtype=x.dtype, device=x.device), x[:N-m]]) if m else x
+            mag2 = xm.real**2 + xm.imag**2
+            t = xm
+            for _ in range(Np):
+                cols.append(t); t = t*mag2
+        return torch.stack(cols, dim=1)          # (N, M*Np)
+    def pa(x):
+        return basis(x) @ c
+    pa.c = c
+    return pa
+
+def torch_gmmp_pa(M=4, Np=3, seed=7):
+    """Differentiable generalised-MP PA (mirrors GmMP_PA exactly) for DLA."""
+    import torch
+    rng = np.random.default_rng(seed)
+    c = np.zeros(M*Np, complex); c[0] = 1.0; c[1] = -0.11+0.05j; c[2] = -0.02-0.015j
+    for m in range(1, M):
+        c[m*Np]   = 0.02*(rng.standard_normal()+1j*rng.standard_normal())
+        c[m*Np+1] = 0.01*(rng.standard_normal()+1j*rng.standard_normal())
+    cc = 0.03*(rng.standard_normal(M)+1j*rng.standard_normal(M))
+    ct = torch.as_tensor(c, dtype=torch.complex64)
+    cct = torch.as_tensor(cc, dtype=torch.complex64)
+    def basis(x):
+        N = x.shape[0]; cols = []
+        for m in range(M):
+            xm = torch.cat([torch.zeros(m, dtype=x.dtype), x[:N-m]]) if m else x
+            mag2 = xm.real**2 + xm.imag**2
+            t = xm
+            for _ in range(Np):
+                cols.append(t); t = t*mag2
+        return torch.stack(cols, dim=1)
+    def pa(x):
+        N = x.shape[0]; y = basis(x) @ ct
+        for m in range(1, M):
+            xm = torch.cat([torch.zeros(m, dtype=x.dtype), x[:N-m]])
+            xp = torch.cat([torch.zeros(m-1, dtype=x.dtype), x[:N-(m-1)]])
+            y = y + cct[m]*xm*(xp.real**2 + xp.imag**2)
+        return y
+    pa.c = ct
+    return pa
