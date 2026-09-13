@@ -42,6 +42,8 @@ class RVTDNN(nn.Module):
             nn.Linear(H, H),   a,
             nn.Linear(H, 2),
         )
+        if residual:                      # start as identity: D(x)=x at init
+            nn.init.zeros_(self.net[4].weight); nn.init.zeros_(self.net[4].bias)
     def forward(self, x):
         out = self.net(real_features(x, self.M))           # (N,2)
         y = torch.complex(out[:, 0], out[:, 1])
