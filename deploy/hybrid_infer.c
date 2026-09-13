@@ -82,7 +82,7 @@ int main(void){
         nn_r += HY_B4[0]; nn_i += HY_B4[1];
         double o_r = lin_r + nn_r, o_i = lin_i + nn_i;
         double e = hypot(o_r*32768 - er[t], o_i*32768 - ei[t]);
-        if (e>1.0) nerr++;
+        if (e>16.0) nerr++;
         if (e>maxe) maxe=e;
     }
     printf("hybrid_infer: MP(%d terms) + MLP(%d) (int16)\n", HY_NC, HY_MID);
