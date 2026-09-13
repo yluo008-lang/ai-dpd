@@ -158,7 +158,7 @@ static const int HY_B2[32] = {
 static const double HY_B4[2] = {
   8.400909791816957e-06,0.00020436149497982115,
 };
-static const double HY_Sphi = 1.767967181650919e-05;
+static const double HY_Sphi = 3.535934363301838e-05;
 static const double HY_Sl = 3.058514836746427e-05;
 static const double HY_SX0 = 1.9193218753243076e-05;
 static const double HY_SX1 = 2.1624224440485357e-05;

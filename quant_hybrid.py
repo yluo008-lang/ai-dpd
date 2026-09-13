@@ -50,7 +50,11 @@ if __name__ == "__main__":
     # ---- scales from calibration set ----
     phi_tr = pa.mp_basis(x_tr, M, Np)                  # (N,Nc) complex
     f_tr = np.concatenate([phi_tr.real, phi_tr.imag], axis=1)
-    Sphi = float(np.abs(f_tr).max())/32700.0
+    # PEAK-HEADROOM calibration: the fixed-point scale must cover the operating
+    # range, not just the calibration set, or unseen peaks clip the basis (and
+    # those peaks are where the PA compresses most). 2x headroom below.
+    HEADROOM = 2.0
+    Sphi = float(np.abs(f_tr).max())*HEADROOM/32700.0
     Sl = float(np.abs(Wl).max())/32767.0
     Slin = Sl*Sphi
     # MLP activations
