@@ -143,3 +143,15 @@ def torch_iqmp_pa(M=4, Np=3, beta=0.05, phase=0.7):
         return y + b*torch.conj(y)
     pa.c = base.c
     return pa
+
+def torch_mp_basis(x, M=4, Np=3):
+    """Memory-polynomial basis as a differentiable torch tensor (N, M*Np) complex."""
+    import torch
+    N = x.shape[0]; cols = []
+    for m in range(M):
+        xm = torch.cat([torch.zeros(m, dtype=x.dtype), x[:N-m]]) if m else x
+        mag2 = xm.real**2 + xm.imag**2
+        t = xm
+        for _ in range(Np):
+            cols.append(t); t = t*mag2
+    return torch.stack(cols, dim=1)

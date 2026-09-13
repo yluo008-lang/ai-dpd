@@ -83,6 +83,24 @@ class CVNN(nn.Module):
     @property
     def M(self): return self.m
 
+class HybridDPD(nn.Module):
+    """Memory-polynomial DPD (linear, exact inverse) + neural residual, trained
+    end-to-end:  D(x) = W_mp . phi_MP(x) + NN(x)."""
+    def __init__(self, M=4, Np=3, H=32, act="relu"):
+        super().__init__()
+        self.M, self.Np = M, Np
+        a = {"relu": nn.ReLU(), "tanh": nn.Tanh()}[act]
+        self.lin = nn.Linear(2*M*Np, 2)                       # complex MP coeffs -> re/im
+        self.net = nn.Sequential(nn.Linear(3*M, H), a, nn.Linear(H, H), a, nn.Linear(H, 2))
+        nn.init.zeros_(self.net[4].weight); nn.init.zeros_(self.net[4].bias)
+    def forward(self, x):
+        import pa as _pa
+        phi = _pa.torch_mp_basis(x, self.M, self.Np)           # (N,Nc) complex
+        f = torch.cat([phi.real, phi.imag], dim=1)             # (N,2Nc)
+        o = self.lin(f); ylin = torch.complex(o[:, 0], o[:, 1])  # polynomial part
+        on = self.net(real_features(x, self.M)); ynn = torch.complex(on[:, 0], on[:, 1])
+        return ylin + ynn
+
 class TCN(nn.Module):
     """Causal dilated conv (kernel 3, dilations 1,2,4) over (I,Q) + final MLP."""
     seq_model = True
